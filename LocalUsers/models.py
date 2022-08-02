@@ -18,7 +18,7 @@ class SwordphishUser(models.Model):
     must_change_password = models.BooleanField(default=False)
 
     def __str__(self):
-        return "%s %s (%s)" % (self.user.first_name, self.user.last_name, self.user.email)
+        return f"{self.user.first_name} {self.user.last_name} ({self.user.email})"
 
     def subordinates(self, mail=None):
         users_list = []
@@ -54,9 +54,7 @@ class SwordphishUser(models.Model):
             for entity in ents:
                 regions_list.extend(Region.objects.filter(entity=entity))
             membership = RegionMembership.objects.filter(user=self)
-            for region in membership:
-                regions_list.append(region.region)
-
+            regions_list.extend(region.region for region in membership)
         return regions_list
 
     def visible_users(self):
@@ -86,10 +84,7 @@ class SwordphishUser(models.Model):
         if self.is_staff_or_admin():
             return current_user.is_staff
 
-        if self in current_user.swordphishuser.subordinates():
-            return True
-
-        return False
+        return self in current_user.swordphishuser.subordinates()
 
     class Meta:
         ordering = ['user__last_name', 'user__first_name', 'user__email']
@@ -118,10 +113,10 @@ class Region(models.Model):
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE)
 
     def __str__(self):
-        return "%s / %s" % (self.entity.name, self.name)
+        return f"{self.entity.name} / {self.name}"
 
     def prettyname(self):
-        return "%s / %s" % (self.entity.name, self.name)
+        return f"{self.entity.name} / {self.name}"
 
     class Meta:
         ordering = ["entity__name", 'name']
@@ -133,4 +128,4 @@ class RegionMembership(models.Model):
     user = models.ForeignKey(SwordphishUser, on_delete=models.CASCADE)
 
     def __str__(self):
-        return "%s => %s / %s" % (self.user.user.email, self.region.entity.name, self.region.name)
+        return f"{self.user.user.email} => {self.region.entity.name} / {self.region.name}"

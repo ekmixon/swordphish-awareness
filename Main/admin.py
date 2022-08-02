@@ -24,8 +24,7 @@ class SessionAdmin(admin.ModelAdmin):
 
     def user(self, obj):
         session_data = obj.get_decoded()
-        uid = session_data.get('_auth_user_id')
-        if uid:
+        if uid := session_data.get('_auth_user_id'):
             user = User.objects.get(id=uid)
             return user.email
         return "unknown user"

@@ -2,10 +2,11 @@ from LocalUsers.models import Entity, Region
 
 
 def get_user_entities(user):
-    entities = []
-    if user is not None:
-        entities = Entity.objects.filter(admins__username=user.username)
-    return entities
+    return (
+        Entity.objects.filter(admins__username=user.username)
+        if user is not None
+        else []
+    )
 
 
 def get_user_regions(user):

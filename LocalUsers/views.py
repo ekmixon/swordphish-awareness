@@ -70,9 +70,7 @@ def user_login(request):
                 if request.user.swordphishuser.must_change_password:
                     return redirect('Authent:loginchangepwd')
                 return redirect('Main:index')
-            return render(request, 'LocalUsers/index.html', {'error': 'error'})
-        else:
-            return render(request, 'LocalUsers/index.html', {'error': 'error'})
+        return render(request, 'LocalUsers/index.html', {'error': 'error'})
     else:
         if request.user.is_authenticated:
             if request.user.swordphishuser.must_change_password:
@@ -177,13 +175,8 @@ def block_unblock_user(request, userid=None):
     if not user.can_be_edited(request.user):
         return HttpResponseForbidden()
 
-    if user.user.is_active:
-        user.user.is_active = False
-        user.user.save()
-    else:
-        user.user.is_active = True
-        user.user.save()
-
+    user.user.is_active = not user.user.is_active
+    user.user.save()
     return HttpResponse("Ok")
 
 
@@ -225,14 +218,19 @@ def edit_user(request, userid=None):
                                 'userid': userid
                           })
 
-        if userform.cleaned_data["email"] != usermail:
-            if User.objects.filter(email=userform.cleaned_data["email"]).count() > 0:
-                return render(request, 'LocalUsers/newuser.html',
-                              {
-                                    'swordphishform': swordphishform,
-                                    'userform': userform,
-                                    'user_already_exists': True
-                              })
+        if (
+            userform.cleaned_data["email"] != usermail
+            and User.objects.filter(
+                email=userform.cleaned_data["email"]
+            ).count()
+            > 0
+        ):
+            return render(request, 'LocalUsers/newuser.html',
+                          {
+                                'swordphishform': swordphishform,
+                                'userform': userform,
+                                'user_already_exists': True
+                          })
 
         newuser = userform.save(commit=False)
         newuser.username = userform.cleaned_data["email"].lower()
@@ -327,9 +325,7 @@ def list_users(request, emailcontains=None):
         users_list = SwordphishUser.objects.filter(user__email__contains=emailcontains)
     else:
         users_list = SwordphishUser.objects.all()
-    full_list = []
-    for user in users_list:
-        full_list.append((user, user.can_be_edited(request.user)))
+    full_list = [(user, user.can_be_edited(request.user)) for user in users_list]
     return render(request, 'LocalUsers/listusers.html',
                   {
                         "userslist": full_list,

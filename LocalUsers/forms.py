@@ -122,16 +122,16 @@ class AddAdminForm(ModelForm):
         self.fields["users"].choices = self.get_admin_list()
 
     def get_admin_list(self):
-        result = []
         swordphishusers = SwordphishUser.objects.all()
         instanceadmins = self.instance.admins.all()
-        for user in swordphishusers:
-            if user not in instanceadmins:
-                result.append((user.id, "%s %s (%s)" % (user.user.last_name,
-                                                        user.user.first_name,
-                                                        user.user.email)
-                               ))
-        return result
+        return [
+            (
+                user.id,
+                f"{user.user.last_name} {user.user.first_name} ({user.user.email})",
+            )
+            for user in swordphishusers
+            if user not in instanceadmins
+        ]
 
     def clean_users(self):
         user = self.cleaned_data['users']
@@ -164,14 +164,11 @@ class RegionForm(ModelForm):
         self.fields["entity"].choices = self.get_entities_list(current_user)
 
     def get_entities_list(self, current_user):
-        result = []
         if current_user.is_staff:
             entities = Entity.objects.all()
         else:
             entities = current_user.swordphishuser.entities()
-        for entity in entities:
-            result.append((entity.id, "%s" % (entity.name)))
-        return result
+        return [(entity.id, f"{entity.name}") for entity in entities]
 
     def clean_entity(self):
         entity = self.cleaned_data['entity']
@@ -199,14 +196,14 @@ class AddUserInRegionForm(ModelForm):
         self.fields["users"].choices = self.get_users_list()
 
     def get_users_list(self):
-        result = []
         swordphishusers = SwordphishUser.objects.all()
-        for user in swordphishusers:
-            result.append((user.id, "%s %s (%s)" % (user.user.last_name,
-                                                    user.user.first_name,
-                                                    user.user.email)
-                           ))
-        return result
+        return [
+            (
+                user.id,
+                f"{user.user.last_name} {user.user.first_name} ({user.user.email})",
+            )
+            for user in swordphishusers
+        ]
 
     def clean_users(self):
         user = self.cleaned_data['users']

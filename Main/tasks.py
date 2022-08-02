@@ -38,11 +38,10 @@ def check_campaigns():
     campaigns = Campaign.objects.filter(status="1")
     campaigns_to_start = []
     for campaign in campaigns:
-        if campaign.start_date <= now:
-            if campaign.end_date >= now:
-                campaign.status = "2"
-                campaign.save()
-                campaigns_to_start.append(campaign)
+        if campaign.start_date <= now and campaign.end_date >= now:
+            campaign.status = "2"
+            campaign.save()
+            campaigns_to_start.append(campaign)
 
     for campaign in campaigns_to_start:
         start_campaign.delay(campaign.id)

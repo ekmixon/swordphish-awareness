@@ -189,11 +189,8 @@ class Awareness(ModelForm):
             doctype = Doctype("html")
             soup.insert(0, doctype)
 
-        imgid = 0
-        for img in soup.findAll("img"):
-            img["id"] = "img%s" % imgid
-            imgid += 1
-
+        for imgid, img in enumerate(soup.findAll("img")):
+            img["id"] = f"img{imgid}"
         return str(soup)
 
     def clean_title(self):
@@ -241,11 +238,8 @@ class CredsHarvesterForm(ModelForm):
         if not forms[0].findAll("input", attrs={"type": "submit"}):
             raise ValidationError(_("The form must have a submit button"))
 
-        imgid = 0
-        for img in soup.findAll("img"):
-            img["id"] = "img%s" % imgid
-            imgid += 1
-
+        for imgid, img in enumerate(soup.findAll("img")):
+            img["id"] = f"img{imgid}"
         return str(soup)
 
     def clean_title(self):
@@ -334,7 +328,7 @@ class FakeRansomForm(ModelForm):
 
         for div in soup.body.findAll("div"):
             if "style" in div.attrs:
-                div.attrs["style"] = "%s; %s;" % (div.attrs["style"], "display:none")
+                div.attrs["style"] = f'{div.attrs["style"]}; display:none;'
             else:
                 div.attrs["style"] = "display:none"
 
@@ -345,12 +339,9 @@ class FakeRansomForm(ModelForm):
         if not soup.body.findAll("img"):
             raise ValidationError(_("The form must have at least one image"))
 
-        imgid = 0
-        for img in soup.findAll("img"):
+        for imgid, img in enumerate(soup.findAll("img")):
             img["onclick"] = "javascript:launchIntoFullscreen(document.documentElement);"
-            img["id"] = "img%s" % imgid
-            imgid += 1
-
+            img["id"] = f"img{imgid}"
         return str(soup)
 
     def clean_title(self):
@@ -399,8 +390,7 @@ class CampaignForm(ModelForm):
 
     def get_targets_list(self, user):
         visible_users = user.swordphishuser.visible_users()
-        targetslists = TargetList.objects.filter(author__in=visible_users)
-        return targetslists
+        return TargetList.objects.filter(author__in=visible_users)
 
     def clean(self):
         cleaned_data = super(CampaignForm, self).clean()
@@ -452,12 +442,10 @@ class StandardCampaignForm(CampaignForm):
         self.fields['onclick_action'].queryset = onclick_action
 
     def clean_host_domain(self):
-        host_domain = self.cleaned_data["host_domain"]
-
-        if not host_domain:
+        if host_domain := self.cleaned_data["host_domain"]:
+            return host_domain
+        else:
             raise ValidationError(_("Please specify a host domain"))
-
-        return host_domain
 
     def clean_onclick_action(self):
         templates = Template.objects.filter(Q(template_type__in=["4", "5"]) & (
@@ -580,12 +568,10 @@ class FakeFormCampaignForm(CampaignForm):
         self.fields['onclick_action'].queryset = onclick_action
 
     def clean_host_domain(self):
-        host_domain = self.cleaned_data["host_domain"]
-
-        if not host_domain:
+        if host_domain := self.cleaned_data["host_domain"]:
+            return host_domain
+        else:
             raise ValidationError(_("Please specify a host domain"))
-
-        return host_domain
 
     def clean_onclick_action(self):
         templates = Template.objects.filter(Q(template_type__in=["4", "5"]) & (
@@ -665,12 +651,10 @@ class FakeRansomCampaignForm(CampaignForm):
         self.fields['onclick_action'].queryset = onclick_action
 
     def clean_host_domain(self):
-        host_domain = self.cleaned_data["host_domain"]
-
-        if not host_domain:
+        if host_domain := self.cleaned_data["host_domain"]:
+            return host_domain
+        else:
             raise ValidationError(_("Please specify a host domain"))
-
-        return host_domain
 
     def clean_onclick_action(self):
         templates = Template.objects.filter(Q(template_type__in=["4", "5"]) & (
@@ -736,11 +720,10 @@ class ReportForm(ModelForm):
     def clean_ids(self):
         ids = self.cleaned_data["ids"]
         regex = r'[a-z\d]{8}-[a-z\d]{4}-[a-z\d]{4}-[a-z\d]{4}-[a-z\d]{12}'
-        a = re.findall(regex, ids)
-        if not a:
-            raise ValidationError(_("Please specify at least one id..."))
-        else:
+        if a := re.findall(regex, ids):
             return ids
+        else:
+            raise ValidationError(_("Please specify at least one id..."))
 
     class Meta:
         fields = ['name']

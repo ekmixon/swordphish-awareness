@@ -31,7 +31,7 @@ class Attribute(models.Model):
     value = models.CharField(db_index=True, max_length=240)
 
     def __str__(self):
-        return "%s => %s" % (self.key, self.value)
+        return f"{self.key} => {self.value}"
 
     class Meta:
         unique_together = ('key', 'value')
@@ -138,8 +138,7 @@ class TargetList(models.Model):
         header.insert(0, "email")
         ws.append(header)
         for address in mails:
-            line = []
-            line.append(address)
+            line = [address]
             for tag in tags:
                 if tag in mails[address]:
                     line.append(mails[address][tag])
@@ -232,11 +231,11 @@ class Template(models.Model):
         return self.name
 
     def is_used(self):
-        if self.template_type == "1" or self.template_type == "2":
+        if self.template_type in ["1", "2"]:
             return bool(Campaign.objects.filter(mail_template=self.id))
         if self.template_type == "3":
             return bool(Campaign.objects.filter(attachment_template=self.id))
-        if self.template_type == "4" or self.template_type == "5":
+        if self.template_type in ["4", "5"]:
             return bool(Campaign.objects.filter(onclick_action=self.id))
         if self.template_type == "6":
             return bool(Campaign.objects.filter(fake_form=self.id))
@@ -359,7 +358,7 @@ class Campaign(models.Model):
         soup = BeautifulSoup(self.mail_template.text, "html.parser")
         imgs = []
         for img in soup.findAll("img"):
-            if not img.has_attr("src") or not img["src"][:5].lower() == "data:":
+            if not img.has_attr("src") or img["src"][:5].lower() != "data:":
                 continue
             tmp = img["src"].split(',')
             if len(tmp) > 1:
@@ -367,9 +366,9 @@ class Campaign(models.Model):
                 mime = tmp[0].split(';')[0].split(':')[1]
                 mimeimg = MIMEImage(b64decode(base64))
                 mimeimg.set_type(mime)
-                mimeimg.add_header('Content-ID', '<img%s>' % i)
+                mimeimg.add_header('Content-ID', f'<img{i}>')
                 imgs.append(mimeimg)
-            img["src"] = "cid:img%s" % i
+            img["src"] = f"cid:img{i}"
             if "style" in img:
                 styles = img["style"].split(";")
                 height = 0
@@ -387,10 +386,11 @@ class Campaign(models.Model):
                     img["width"] = width
             i += 1
 
-        if self.enable_mail_tracker:
-            if not soup.findAll("img", attrs={"src": "FIXMEMAILTRACKER"}):
-                img = soup.new_tag("img", src="FIXMEMAILTRACKER")
-                soup.body.append(img)
+        if self.enable_mail_tracker and not soup.findAll(
+            "img", attrs={"src": "FIXMEMAILTRACKER"}
+        ):
+            img = soup.new_tag("img", src="FIXMEMAILTRACKER")
+            soup.body.append(img)
 
         return {"text": str(soup), "imgs": imgs}
 
@@ -401,13 +401,13 @@ class Campaign(models.Model):
         soup = BeautifulSoup(self.attachment_template.text, "html.parser")
         imgs = []
         for img in soup.findAll("img"):
-            if not img.has_attr("src") or not img["src"][:5].lower() == "data:":
+            if not img.has_attr("src") or img["src"][:5].lower() != "data:":
                 continue
             tmp = img["src"].split(',')
             mime = tmp[0].split(';')[0].split(':')[1]
             mimeimg = tmp[1]
-            imgs.append((mimeimg, mime, "fichier_files/img%s" % i))
-            img["src"] = "fichier_files/img%s" % i
+            imgs.append((mimeimg, mime, f"fichier_files/img{i}"))
+            img["src"] = f"fichier_files/img{i}"
             if "style" in img:
                 styles = img["style"].split(";")
                 height = 0
@@ -425,17 +425,17 @@ class Campaign(models.Model):
                     img["width"] = width
             i += 1
 
-        if self.enable_attachment_tracker:
-            if not soup.findAll("img", attrs={"src": "FIXMEDOCTRACKER"}):
-                img = soup.new_tag("img", src="FIXMEDOCTRACKER")
-                soup.body.append(img)
+        if self.enable_attachment_tracker and not soup.findAll(
+            "img", attrs={"src": "FIXMEDOCTRACKER"}
+        ):
+            img = soup.new_tag("img", src="FIXMEDOCTRACKER")
+            soup.body.append(img)
 
         if not soup.findAll("meta", attrs={"charset": "UTF-8"}):
             charset = soup.new_tag("meta", charset="UTF-8")
             soup.head.append(charset)
 
-        result = ""
-        result += "MIME-Version: 1.0\n"
+        result = "" + "MIME-Version: 1.0\n"
         result += 'Content-Type: multipart/related; boundary="----=_SwordPhish_Decoy_000_001"\n\n'
         result += "------=_SwordPhish_Decoy_000_001\n"
         result += "Content-Location: file:///C:/fichier.html\n"
@@ -455,13 +455,13 @@ class Campaign(models.Model):
     def __sendemail(self, recipient, targetid, connec, mail_content):
         base_mail = mail_content
         mail_content = "Read this mail with a HTML compatible client"
-        sender = self.from_name + '@' + self.from_domain.domain
+        sender = f'{self.from_name}@{self.from_domain.domain}'
         try:
             target = AnonymousTarget.objects.get(uniqueid=targetid)
         except ObjectDoesNotExist:
             target = None
         if self.display_name != "":
-            from_mail = "%s <%s>" % (self.display_name, sender)
+            from_mail = f"{self.display_name} <{sender}>"
         else:
             from_mail = sender
 
@@ -494,14 +494,14 @@ class Campaign(models.Model):
 
         if target:
             for att in target.attributes.all():
-                html_content = html_content.replace("($%s$)" % (att.key), att.value)
+                html_content = html_content.replace(f"(${att.key}$)", att.value)
 
         email.attach_alternative(html_content, "text/html")
         email.mixed_subtype = 'related'
         for img in base_mail["imgs"]:
             email.attach(img)
 
-        email.extra_headers = {settings.PHISHING_MAIL_HEADER: "[%s]" % targetid}
+        email.extra_headers = {settings.PHISHING_MAIL_HEADER: f"[{targetid}]"}
         email.send(fail_silently=False)
 
     def __sendemailwithattachment(self,
@@ -517,9 +517,9 @@ class Campaign(models.Model):
         except ObjectDoesNotExist:
             target = None
         mail_content = "Read this mail with a HTML compatible client"
-        sender = self.from_name + '@' + self.from_domain.domain
+        sender = f'{self.from_name}@{self.from_domain.domain}'
         if self.display_name != "":
-            from_mail = "%s <%s>" % (self.display_name, sender)
+            from_mail = f"{self.display_name} <{sender}>"
         else:
             from_mail = sender
 
@@ -547,9 +547,9 @@ class Campaign(models.Model):
 
         if target:
             for att in target.attributes.all():
-                html_content = html_content.replace("($%s$)" % (att.key), att.value)
+                html_content = html_content.replace(f"(${att.key}$)", att.value)
         email.attach_alternative(html_content, "text/html")
-        temp = "%s.doc" % (self.attachment_template.title)
+        temp = f"{self.attachment_template.title}.doc"
         filename = Header(temp, 'utf-8').encode()
         email.attach(filename=filename,
                      content=mhtml_attach.encode("utf-8"),
@@ -557,7 +557,7 @@ class Campaign(models.Model):
         email.mixed_subtype = 'related'
         for img in base_mail["imgs"]:
             email.attach(img)
-        email.extra_headers = {settings.PHISHING_MAIL_HEADER: "[%s]" % targetid}
+        email.extra_headers = {settings.PHISHING_MAIL_HEADER: f"[{targetid}]"}
         email.send(fail_silently=False)
 
     def start(self):
@@ -567,11 +567,13 @@ class Campaign(models.Model):
         self.targets_count = self.count_targets()
         self.save()
         try:
-            send_alert_new_campaign(self.targets_count,
-                                    self.author.user.email,
-                                    self.mail_template.title,
-                                    "%s@%s" % (self.from_name, self.from_domain.domain)
-                                    )
+            send_alert_new_campaign(
+                self.targets_count,
+                self.author.user.email,
+                self.mail_template.title,
+                f"{self.from_name}@{self.from_domain.domain}",
+            )
+
         except SMTPRecipientsRefused:
             pass
         targetlists = self.targets.all()
@@ -615,7 +617,7 @@ class Campaign(models.Model):
         connec.open()
         mail_content = self.__buildemail()
         attachment_content = self.__buildattachment()
-        if self.campaign_type == "1" or self.campaign_type == "3" or self.campaign_type == "4":
+        if self.campaign_type in ["1", "3", "4"]:
             self.__sendemail(recipient, self.testid, connec, mail_content)
         elif self.campaign_type == "2":
             self.__sendemailwithattachment(recipient,

@@ -232,7 +232,7 @@ def campaign_export_targets_list(request, listid):
     if targetlist.author not in request.user.swordphishuser.visible_users():
         return HttpResponseForbidden()
 
-    if request.method == "GET" or request.method == "POST":
+    if request.method in ["GET", "POST"]:
         excelmime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         response = HttpResponse(targetlist.export_to_xlsx(), content_type=excelmime)
         response['Content-Disposition'] = 'attachment; filename="%s.xlsx"' % targetlist.name
@@ -272,9 +272,9 @@ def campaign_create_target(request, listid):
                           'listid': listid}
                           )
 
-        existing = targetlist.targets.filter(mail_address=targetform.cleaned_data["mail_address"])
-
-        if existing:
+        if existing := targetlist.targets.filter(
+            mail_address=targetform.cleaned_data["mail_address"]
+        ):
             return render(request, 'Main/Campaigns/Targets/createtarget.html',
                           {'targetlist': targetlist,
                           'targetform': targetform,
@@ -362,11 +362,7 @@ def campaign_edit_target(request, listid, targetid):
 def campaign_list_targets(request, listid, page=1):
     targetlist = get_object_or_404(TargetList, id=listid)
 
-    editable = True
-
-    if targetlist.author not in request.user.swordphishuser.visible_users():
-        editable = False
-
+    editable = targetlist.author in request.user.swordphishuser.visible_users()
     paginator = Paginator(targetlist.targets.all().order_by("mail_address"), 10, request=request)
 
     try:
@@ -428,27 +424,26 @@ def campaign_delete_target(request, listid, targetid):
 @login_required
 def campaign_list_targets_list(request, page=1):
 
-    if request.method == "GET":
-        visible_usrs = request.user.swordphishuser.visible_users()
-        targetslists = TargetList.objects.filter(author__in=visible_usrs).order_by("-creation_date")
+    if request.method != "GET":
+        return HttpResponseForbidden()
+    visible_usrs = request.user.swordphishuser.visible_users()
+    targetslists = TargetList.objects.filter(author__in=visible_usrs).order_by("-creation_date")
 
-        paginator = Paginator(targetslists, 20, request=request)
+    paginator = Paginator(targetslists, 20, request=request)
 
-        try:
-            lists = paginator.page(page)
-        except PageNotAnInteger:
-            lists = paginator.page(1)
-        except EmptyPage:
-            lists = paginator.page(paginator.num_pages)
-        except Exception:
-            lists = paginator.page(1)
+    try:
+        lists = paginator.page(page)
+    except PageNotAnInteger:
+        lists = paginator.page(1)
+    except EmptyPage:
+        lists = paginator.page(paginator.num_pages)
+    except Exception:
+        lists = paginator.page(1)
 
-        return render(request, "Main/Campaigns/Targets/listtargetslists.html",
-                      {'targetslists': lists,
-                      "current_user": request.user.swordphishuser}
-                      )
-
-    return HttpResponseForbidden()
+    return render(request, "Main/Campaigns/Targets/listtargetslists.html",
+                  {'targetslists': lists,
+                  "current_user": request.user.swordphishuser}
+                  )
 
 
 @validate_domain
@@ -519,10 +514,10 @@ def campaign_create_template(request, typeid, duplicateid=None):
                           "typeid": typeid}
                           )
 
-        pmail = Template.objects.filter(name=phishform.cleaned_data["name"],
-                                        author=request.user.swordphishuser)
-
-        if pmail:
+        if pmail := Template.objects.filter(
+            name=phishform.cleaned_data["name"],
+            author=request.user.swordphishuser,
+        ):
             return render(request, 'Main/Campaigns/Templates/createtemplate.html',
                           {"phishform": phishform,
                           "typeid": typeid,
@@ -597,12 +592,11 @@ def campaign_edit_template(request, typeid, templateid):
                           "typeid": typeid, 'templateid': templateid}
                           )
 
-        result = Template.objects.filter(Q(name=phishform.cleaned_data["name"]) &
-                                         Q(author=request.user.swordphishuser) &
-                                         ~Q(id=template.id)
-                                         )
-
-        if result:
+        if result := Template.objects.filter(
+            Q(name=phishform.cleaned_data["name"])
+            & Q(author=request.user.swordphishuser)
+            & ~Q(id=template.id)
+        ):
             return render(request, 'Main/Campaigns/Templates/edittemplate.html',
                           {'phishform': phishform,
                           "typeid": typeid,
@@ -663,27 +657,26 @@ def campaign_view_template(request, templateid):
 @login_required
 def campaign_list_template(request, page=1):
 
-    if request.method == "GET":
-        visible_users = request.user.swordphishuser.visible_users()
-        templatelist = Template.objects.filter(Q(author__in=visible_users) |
-                                               Q(public=True)).order_by("-creation_date")
-        paginator = Paginator(templatelist, 20)
+    if request.method != "GET":
+        return HttpResponseForbidden()
+    visible_users = request.user.swordphishuser.visible_users()
+    templatelist = Template.objects.filter(Q(author__in=visible_users) |
+                                           Q(public=True)).order_by("-creation_date")
+    paginator = Paginator(templatelist, 20)
 
-        try:
-            templates = paginator.page(page)
-        except PageNotAnInteger:
-            templates = paginator.page(1)
-        except EmptyPage:
-            templates = paginator.page(paginator.num_pages)
-        except Exception:
-            templates = paginator.page(1)
+    try:
+        templates = paginator.page(page)
+    except PageNotAnInteger:
+        templates = paginator.page(1)
+    except EmptyPage:
+        templates = paginator.page(paginator.num_pages)
+    except Exception:
+        templates = paginator.page(1)
 
-        return render(request, 'Main/Campaigns/Templates/listtemplate.html',
-                      {"templatelist": templates,
-                      "current_user": request.user.swordphishuser}
-                      )
-
-    return HttpResponseForbidden()
+    return render(request, 'Main/Campaigns/Templates/listtemplate.html',
+                  {"templatelist": templates,
+                  "current_user": request.user.swordphishuser}
+                  )
 
 
 @validate_domain
@@ -698,12 +691,15 @@ def campaign_campaigns(request):
 @validate_domain
 @login_required
 def campaign_running_campaigns(request):
-    if not request.user.is_staff:
-        return HttpResponseForbidden()
-
-    return render(request, "Main/Campaigns/Campaigns/running_campaigns.html",
-                  {"types": Campaign.CAMPAIGN_TYPES}
-                  )
+    return (
+        render(
+            request,
+            "Main/Campaigns/Campaigns/running_campaigns.html",
+            {"types": Campaign.CAMPAIGN_TYPES},
+        )
+        if request.user.is_staff
+        else HttpResponseForbidden()
+    )
 
 
 @validate_domain
@@ -767,10 +763,10 @@ def campaign_create_campaign(request, typeid, duplicateid=None):
                           "typeid": typeid}
                           )
 
-        existing = Campaign.objects.filter(name=campaignform.cleaned_data["name"],
-                                           author=request.user.swordphishuser)
-
-        if existing:
+        if existing := Campaign.objects.filter(
+            name=campaignform.cleaned_data["name"],
+            author=request.user.swordphishuser,
+        ):
             return render(request, 'Main/Campaigns/Campaigns/createcampaign.html',
                           {'campaignform': campaignform,
                           "typeid": typeid,
@@ -885,11 +881,11 @@ def campaign_edit_campaign(request, typeid, campaignid):
                           'campaign': campaign}
                           )
 
-        result = Campaign.objects.filter(Q(name=campaignform.cleaned_data["name"]) &
-                                         Q(author=request.user.swordphishuser) &
-                                         ~Q(id=campaign.id))
-
-        if result:
+        if result := Campaign.objects.filter(
+            Q(name=campaignform.cleaned_data["name"])
+            & Q(author=request.user.swordphishuser)
+            & ~Q(id=campaign.id)
+        ):
             return render(request, 'Main/Campaigns/Campaigns/editcampaign.html',
                           {'campaignform': campaignform,
                           "typeid": typeid,
@@ -936,26 +932,25 @@ def campaign_delete_campaign(request, campaignid):
 @validate_domain
 @login_required
 def campaign_list_campaigns(request, page=1):
-    if request.method == "GET":
-        visible_users = request.user.swordphishuser.visible_users()
-        campaignlist = Campaign.objects.filter(author__in=visible_users)
-        paginator = Paginator(campaignlist, 20)
+    if request.method != "GET":
+        return HttpResponseForbidden()
+    visible_users = request.user.swordphishuser.visible_users()
+    campaignlist = Campaign.objects.filter(author__in=visible_users)
+    paginator = Paginator(campaignlist, 20)
 
-        try:
-            campaigns = paginator.page(page)
-        except PageNotAnInteger:
-            campaigns = paginator.page(1)
-        except EmptyPage:
-            campaigns = paginator.page(paginator.num_pages)
-        except Exception:
-            campaigns = paginator.page(1)
+    try:
+        campaigns = paginator.page(page)
+    except PageNotAnInteger:
+        campaigns = paginator.page(1)
+    except EmptyPage:
+        campaigns = paginator.page(paginator.num_pages)
+    except Exception:
+        campaigns = paginator.page(1)
 
-        return render(request, 'Main/Campaigns/Campaigns/listcampaigns.html',
-                      {"campaignlist": campaigns,
-                      "current_user": request.user.swordphishuser}
-                      )
-
-    return HttpResponseForbidden()
+    return render(request, 'Main/Campaigns/Campaigns/listcampaigns.html',
+                  {"campaignlist": campaigns,
+                  "current_user": request.user.swordphishuser}
+                  )
 
 
 @validate_domain
@@ -996,7 +991,7 @@ def campaign_download_results(request, campaignid):
     if campaign.status != "3":
         return HttpResponseForbidden()
 
-    if request.method == "GET" or request.method == "POST":
+    if request.method in ["GET", "POST"]:
         excelmime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         response = HttpResponse(campaign.download_results_xlsx(), content_type=excelmime)
         response['Content-Disposition'] = 'attachment; filename="%s_results.xlsx"' % campaign.name
@@ -1013,7 +1008,7 @@ def campaign_display_dashboard(request, campaignid):
     if campaign.author not in request.user.swordphishuser.visible_users():
         return HttpResponseForbidden()
 
-    if campaign.status != "2" and campaign.status != "3":
+    if campaign.status not in ["2", "3"]:
         return HttpResponseForbidden()
 
     if request.method == "GET":
@@ -1027,7 +1022,7 @@ def campaign_display_dashboard(request, campaignid):
 def campaign_submit_reported_ids(request, campaignid):
     campaign = get_object_or_404(Campaign, id=campaignid)
 
-    if campaign.status != "2" and campaign.status != "3":
+    if campaign.status not in ["2", "3"]:
         return HttpResponseForbidden()
 
     if request.method == "GET":
@@ -1047,8 +1042,7 @@ def campaign_submit_reported_ids(request, campaignid):
         text = reportform.cleaned_data['ids']
         ids = re.findall(regex, text)
         for i in ids:
-            targetl = campaign.anonymous_targets.filter(uniqueid=i)
-            if targetl:
+            if targetl := campaign.anonymous_targets.filter(uniqueid=i):
                 targetl[0].reported = True
                 targetl[0].save()
         return HttpResponse("Ok")
@@ -1093,35 +1087,31 @@ def admin_regions(request):
 
 
 def campaign_display_awareness(request, campaignid, targetid):
-    campaigntest = Campaign.objects.filter(testid=targetid)
-
-    if campaigntest:
+    if campaigntest := Campaign.objects.filter(testid=targetid):
         campaign = campaigntest[0]
     else:
         campaign = get_object_or_404(Campaign, id=campaignid)
         target = get_object_or_404(AnonymousTarget, uniqueid=targetid)
 
-        if campaign.campaign_type == "3" or campaign.campaign_type == "4":
-            if campaign.status == "2":
-                target.form_submitted = True
-                target.form_submitted_time = datetime.now()
-                target.save()
+        if campaign.campaign_type in ["3", "4"] and campaign.status == "2":
+            target.form_submitted = True
+            target.form_submitted_time = datetime.now()
+            target.save()
 
     if campaign.onclick_action.template_type == "4":
         return redirect(campaign.onclick_action.title)
 
-    if campaign.onclick_action.template_type == "5":
-        if "HTTP_USER_AGENT" in request.META:
-            if "MSIE" in request.META["HTTP_USER_AGENT"]:
-                template = internet_explorer_img_hack_template(campaign.onclick_action)
-                return render(request, "Main/awareness.html", {"template": template})
-
-            return render(request, "Main/awareness.html",
-                          {"template": campaign.onclick_action.text}
-                          )
-    else:
+    if campaign.onclick_action.template_type != "5":
         return HttpResponseNotFound()
 
+    if "HTTP_USER_AGENT" in request.META:
+        if "MSIE" in request.META["HTTP_USER_AGENT"]:
+            template = internet_explorer_img_hack_template(campaign.onclick_action)
+            return render(request, "Main/awareness.html", {"template": template})
+
+        return render(request, "Main/awareness.html",
+                      {"template": campaign.onclick_action.text}
+                      )
     return HttpResponseForbidden()
 
 
@@ -1159,24 +1149,25 @@ def campaign_target_click(request, targetid):
     if campaign.campaign_type == "1":
         if campaign.onclick_action.template_type == "4":
             return redirect(campaign.onclick_action.title)
-        if campaign.onclick_action.template_type == "5":
-            if "HTTP_USER_AGENT" in request.META:
-                if "MSIE" in request.META["HTTP_USER_AGENT"]:
-                    template = internet_explorer_img_hack_template(campaign.onclick_action)
-                    return render(request, "Main/awareness.html", {"template": template})
-                return render(request, "Main/awareness.html",
-                              {"template": campaign.onclick_action.text}
-                              )
-        else:
+        if campaign.onclick_action.template_type != "5":
             return HttpResponseNotFound()
 
+        if "HTTP_USER_AGENT" in request.META:
+            if "MSIE" in request.META["HTTP_USER_AGENT"]:
+                template = internet_explorer_img_hack_template(campaign.onclick_action)
+                return render(request, "Main/awareness.html", {"template": template})
+            return render(request, "Main/awareness.html",
+                          {"template": campaign.onclick_action.text}
+                          )
     if campaign.campaign_type == "3":
 
         template = campaign.fake_form.text
 
-        if "HTTP_USER_AGENT" in request.META:
-            if "MSIE" in request.META["HTTP_USER_AGENT"]:
-                template = internet_explorer_img_hack_template(campaign.fake_form)
+        if (
+            "HTTP_USER_AGENT" in request.META
+            and "MSIE" in request.META["HTTP_USER_AGENT"]
+        ):
+            template = internet_explorer_img_hack_template(campaign.fake_form)
 
         soup = BeautifulSoup(template, "html.parser")
         forms = soup.findAll("form")
@@ -1197,9 +1188,11 @@ def campaign_target_click(request, targetid):
 
     if campaign.campaign_type == "4":
         template = campaign.fake_ransom.text
-        if "HTTP_USER_AGENT" in request.META:
-            if "MSIE" in request.META["HTTP_USER_AGENT"]:
-                template = internet_explorer_img_hack_template(campaign.fake_ransom)
+        if (
+            "HTTP_USER_AGENT" in request.META
+            and "MSIE" in request.META["HTTP_USER_AGENT"]
+        ):
+            template = internet_explorer_img_hack_template(campaign.fake_ransom)
 
         if campaign.onclick_action.template_type in ["4", "5"]:
             linkurl = reverse('Main:campaign_display_awareness',
@@ -1212,10 +1205,7 @@ def campaign_target_click(request, targetid):
 
 
 def campaign_target_openmail(request, targetid):
-    # pylint: disable=W0613
-    campaigntest = Campaign.objects.filter(testid=targetid)
-
-    if campaigntest:
+    if campaigntest := Campaign.objects.filter(testid=targetid):
         campaign = campaigntest[0]
     else:
         target = get_object_or_404(AnonymousTarget, uniqueid=targetid)
@@ -1266,10 +1256,7 @@ def campaign_target_reportmail(request, targetid):
 
 
 def campaign_target_openattachment(request, targetid):
-    # pylint: disable=W0613
-    campaigntest = Campaign.objects.filter(testid=targetid)
-
-    if campaigntest:
+    if campaigntest := Campaign.objects.filter(testid=targetid):
         campaign = campaigntest[0]
     else:
         target = get_object_or_404(AnonymousTarget, uniqueid=targetid)
